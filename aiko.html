@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>My Anime AI</title>
+<style>
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);--bg:#05050a;--card:#141420;--tx:#fff;--mut:#9a9ab5;--ac:#7c6cff}
+*{box-sizing:border-box}html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--tx);font-family:system-ui,-apple-system,"Segoe UI",sans-serif;display:flex;flex-direction:column;overflow:hidden}
+#stage{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;background:radial-gradient(circle at 50% 58%,var(--glow,rgba(124,108,255,.18)),transparent 68%)}
+#wrap{width:100%;height:100%;display:flex;align-items:center;justify-content:center}
+#char{max-width:100%;max-height:100%;object-fit:contain;animation:float 4.5s ease-in-out infinite}
+#char.talk{filter:drop-shadow(0 0 22px rgba(124,108,255,.6))}
+#char.e-happy{animation:hop .65s ease-in-out infinite}
+#char.e-sad{animation:droop 5s ease-in-out infinite;filter:brightness(.82)}
+#char.e-sad.talk{filter:brightness(.82) drop-shadow(0 0 18px rgba(70,110,220,.5))}
+#char.e-angry{animation:shake .14s 7,float 4.5s .98s ease-in-out infinite}
+#char.e-surprised{animation:pop .4s 1,float 4.5s .4s ease-in-out infinite}
+#char.e-thinking{animation:think 3.5s ease-in-out infinite}
+@keyframes float{0%,100%{transform:translateY(0) rotate(-.7deg)}50%{transform:translateY(-8px) rotate(.7deg)}}@keyframes hop{0%,100%{transform:translateY(0) scale(1)}40%{transform:translateY(-16px) scale(1.02)}}@keyframes droop{0%,100%{transform:translateY(6px) scale(.985)}50%{transform:translateY(10px) scale(.975)}}@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-4px)}75%{transform:translateX(4px)}}@keyframes pop{0%{transform:scale(1)}50%{transform:scale(1.09)}100%{transform:scale(1)}}@keyframes think{0%,100%{transform:rotate(-2.5deg)}50%{transform:rotate(2.5deg) translateY(-4px)}}
+.fx{position:absolute;bottom:22%;font-size:26px;pointer-events:none;opacity:0;animation:rise 2s ease-out forwards}@keyframes rise{0%{opacity:0;transform:translateY(0)}20%{opacity:1}100%{opacity:0;transform:translateY(-150px)}}
+#hint{position:absolute;padding:24px;text-align:center;color:var(--mut);line-height:1.5}
+#cap{min-height:92px;padding:6px 18px;text-align:center;font-weight:700;font-size:19px;line-height:1.35;display:flex;align-items:center;justify-content:center}
+#user{font-size:13px;color:var(--mut);text-align:center;height:18px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;padding:0 16px}
+#bar{display:flex;gap:8px;padding:8px 12px}
+#bar input{flex:1;min-width:0;height:44px;padding:0 16px;border-radius:22px;border:1px solid #2a2a40;background:var(--card);color:var(--tx);font-size:16px}
+button{border:0;border-radius:22px;height:44px;padding:0 16px;font-size:15px;background:var(--ac);color:#fff}
+button.g{background:var(--card);border:1px solid #2a2a40}
+#mic.on{animation:p 1s infinite}@keyframes p{50%{opacity:.45}}
+#set{position:absolute;inset:0;background:var(--bg);overflow:auto;padding:16px;display:none;z-index:5}
+#set h3{margin:6px 0}#set label{display:block;margin:12px 0 4px;font-size:14px;color:var(--mut)}
+#set input[type=text],#set textarea,#set select{width:100%;padding:10px;border-radius:12px;border:1px solid #2a2a40;background:var(--card);color:var(--tx);font-size:16px}
+.sl{display:flex;align-items:center;gap:10px;margin:8px 0}.sl img{width:48px;height:48px;object-fit:cover;border-radius:10px;background:var(--card)}
+.sl span{flex:1}.sl input{display:none}
+</style></head><body>
+<div id="stage"><div id="wrap"><img id="char" alt="" hidden></div><div id="hint">Open ⚙ Setup and add your character images (at least “neutral”). Then tap 🎤 or type to talk.</div></div>
+<div id="user"></div><div id="cap"></div>
+<div id="bar"><button class="g" id="gear">⚙</button><button id="mic">🎤</button><input id="txt" placeholder="Type a message…" autocomplete="off"><button id="send">Send</button></div>
+<div id="set"><h3>Setup</h3>
+<label>Character name</label><input type="text" id="nm" value="Aiko">
+<label>Personality</label><textarea id="ps" rows="3">Lazy, sleepy and always complaining about work, but she never refuses and always does what the user asks, properly. She grumbles first (like “Ugh, fine… do I have to?”), then helps. Secretly she loves talking with the user: she lets it slip with shy little blushes and happy moments, then quickly denies it if teased. Calls the user “sir”.</textarea>
+<label>Gemini API key (stays on this phone only)</label><input type="password" id="ky" placeholder="Paste your key here" autocomplete="off"><label>Model name</label><input type="text" id="md" value="gemini-2.0-flash"><label>Language (voice and replies)</label><select id="lang"><option value="en-IN">English</option><option value="ta-IN">தமிழ்</option><option value="hi-IN">हिन्दी</option></select>
+<label>Expression images (pick from your gallery)</label><div id="slots"></div>
+<div style="display:flex;gap:8px;margin-top:14px"><button class="g" id="tv">🔊 Test voice</button><button id="done">Done</button></div>
+<p id="vmsg" style="color:var(--mut);font-size:13px"></p></div>
+<script>
+const $=id=>document.getElementById(id);
+const EM=["neutral","happy","sad","surprised","thinking","angry"];
+const imgs={},mem={};
+function idb(){return new Promise((res,rej)=>{const r=indexedDB.open("aiko2",1);r.onupgradeneeded=()=>r.result.createObjectStore("s");r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)})}
+async function dget(k){try{const d=await idb();return await new Promise(r=>{const q=d.transaction("s").objectStore("s").get(k);q.onsuccess=()=>r(q.result);q.onerror=()=>r(null)})}catch(e){return mem[k]}}
+async function dput(k,v){mem[k]=v;try{const d=await idb();d.transaction("s","readwrite").objectStore("s").put(v,k)}catch(e){}}
+function shrink(f){return new Promise(res=>{const u=URL.createObjectURL(f),i=new Image();i.onload=()=>{const s=Math.min(1,1000/Math.max(i.width,i.height)),c=document.createElement("canvas");c.width=i.width*s;c.height=i.height*s;c.getContext("2d").drawImage(i,0,0,c.width,c.height);URL.revokeObjectURL(u);res(c.toDataURL(f.type==="image/png"?"image/png":"image/jpeg",.88))};i.src=u})}
+const sl=$("slots");
+EM.concat(["talk","blink"]).forEach(n=>{const d=document.createElement("div");d.className="sl";d.innerHTML='<img id="t_'+n+'" alt=""><span>'+(n==="talk"?"talk · mouth open (optional)":n==="blink"?"blink · eyes closed (optional)":n)+'</span><label class="g" style="margin:0"><button class="g" type="button" onclick="this.nextElementSibling.click()">Choose</button><input type="file" accept="image/*"></label>';
+ d.querySelector("input").onchange=async e=>{const f=e.target.files[0];if(!f)return;const v=await shrink(f);imgs[n]=v;$("t_"+n).src=v;await dput("img_"+n,v);show(cur)};sl.appendChild(d)});
+let cur="neutral";
+let talking=false,mo=false;
+const GL={neutral:"rgba(124,108,255,.18)",happy:"rgba(255,120,190,.32)",sad:"rgba(70,110,220,.3)",surprised:"rgba(255,220,90,.28)",thinking:"rgba(120,200,255,.22)",angry:"rgba(255,70,70,.32)"};
+const FX={happy:["✨","💗"],sad:["💧"],surprised:["❗"],thinking:["💭"],angry:["💢"]};
+function fx(n){(FX[n]||[]).forEach((e,i)=>{for(let k=0;k<3;k++){const s=document.createElement("div");s.className="fx";s.textContent=e;s.style.left=(15+Math.random()*70)+"%";s.style.animationDelay=(k*.25+i*.12)+"s";$("stage").appendChild(s);setTimeout(()=>s.remove(),2600)}})}
+function restore(){const v=imgs[cur]||imgs.neutral;if(v)$("char").src=v}
+function mouth(o){const v=o&&imgs.talk?imgs.talk:(imgs[cur]||imgs.neutral);if(v)$("char").src=v}
+function pulse(){$("wrap").animate([{transform:"scale(1) translateY(0)"},{transform:"scale(1.03) translateY(-5px)"},{transform:"scale(1)"}],{duration:200})}
+function talkLoop(){if(!talking)return;mo=!mo;mouth(mo);if(mo)pulse();setTimeout(talkLoop,120+Math.random()*130)}
+setInterval(()=>{if(!talking&&cur==="neutral"&&imgs.blink&&imgs.neutral){$("char").src=imgs.blink;setTimeout(()=>{if(!talking)restore()},140)}},3600);
+function show(n){const changed=n!==cur;cur=n;const v=imgs[n]||imgs.neutral;const c=$("char");if(v){c.src=v;c.hidden=false;$("hint").hidden=true;c.className=(talking?"talk ":"")+"e-"+n;$("stage").style.setProperty("--glow",GL[n]||GL.neutral);if(changed)fx(n)}else{c.hidden=true;$("hint").hidden=false}}
+function ls(k,v){try{if(v===undefined)return localStorage.getItem(k);localStorage.setItem(k,v)}catch(e){return null}}
+(async()=>{for(const n of EM.concat(["talk","blink"])){const v=await dget("img_"+n);if(v){imgs[n]=v;$("t_"+n).src=v}}
+ ["nm","ps","lang","ky","md"].forEach(i=>{const v=ls("a_"+i);if(v)$(i).value=v;$(i).onchange=()=>ls("a_"+i,$(i).value)});show("neutral")})();
+$("gear").onclick=()=>$("set").style.display="block";$("done").onclick=()=>$("set").style.display="none";
+let tw;function caption(t,ms){clearInterval(tw);let i=0;$("cap").textContent="";tw=setInterval(()=>{i+=2;$("cap").textContent=t.slice(0,i);if(i>=t.length)clearInterval(tw)},ms)}
+function speak(t){
+ if(!window.speechSynthesis){$("user").textContent="This browser can’t speak. Open the link in Chrome.";caption(t,30);return}
+ speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(t);u.lang=$("lang").value;const P={neutral:[1.3,1,1],happy:[1.65,1.12,1],sad:[.95,.8,.75],surprised:[1.8,1.2,1],thinking:[1.25,.88,.9],angry:[1.1,1.2,1]}[cur]||[1.3,1,1];u.pitch=P[0];u.rate=P[1];u.volume=P[2];
+ const vs=speechSynthesis.getVoices().filter(v=>v.lang.replace("_","-").toLowerCase().startsWith(u.lang.slice(0,2)));
+ const f=vs.find(v=>/female|neural|google/i.test(v.name))||vs[0];if(f)u.voice=f;
+ let started=false;
+ u.onstart=()=>{started=true;talking=true;$("char").classList.add("talk");talkLoop()};u.onend=u.onerror=()=>{talking=false;$("char").classList.remove("talk");restore()};
+ caption(t,Math.max(25,Math.min(60,(t.length>0?3200/t.length:40))));
+ speechSynthesis.speak(u);
+ setTimeout(()=>{if(!started)$("user").textContent="No sound? Check volume, or open this page in Chrome."},2500);
+}
+$("tv").onclick=()=>{const ok=!!window.speechSynthesis;$("vmsg").textContent=ok?"Voices found on this device: "+speechSynthesis.getVoices().length+". If you hear nothing, raise media volume or open the link in Chrome.":"Speech is not supported in this viewer. Open the link in Chrome.";if(ok){speechSynthesis.cancel();const u=new SpeechSynthesisUtterance("Hello sir, can you hear me?");u.lang=$("lang").value;speechSynthesis.speak(u)}};
+const hist=[];let busy=false,sample=null;
+async function ask(text){
+ if(!text||busy)return;busy=true;$("user").textContent="You: "+text;hist.push("User: "+text);show("thinking");caption("…",100);
+ try{
+  if(!$("ky").value.trim())throw{message:"Open ⚙ Setup and paste your API key first."};
+  
+  const L=$("lang").selectedOptions[0].text;
+  const p="You are "+$("nm").value+", an anime-style AI companion. Personality: "+$("ps").value+"\nReply in "+L+" unless the user writes in another language. Keep replies to 1–3 short spoken sentences, no emojis, no markdown, no actions in asterisks. Begin with exactly one emotion tag from [neutral] [happy] [sad] [surprised] [thinking] [angry], then the reply.\n\nConversation:\n"+hist.slice(-12).join("\n")+"\n"+$("nm").value+":";
+  const rs=await fetch("https://generativelanguage.googleapis.com/v1beta/models/"+encodeURIComponent($("md").value.trim())+":generateContent",{method:"POST",headers:{"Content-Type":"application/json","x-goog-api-key":$("ky").value.trim()},body:JSON.stringify({contents:[{role:"user",parts:[{text:p}]}]})});const j=await rs.json();if(!rs.ok)throw{message:(j.error&&j.error.message)||"API error "+rs.status};const r={text:(j.candidates&&j.candidates[0]&&j.candidates[0].content.parts.map(x=>x.text||"").join(""))||"..."};
+  let t=r.text.trim(),m=t.match(/^\[(\w+)\]\s*/),e="neutral";
+  if(m){e=m[1].toLowerCase();t=t.slice(m[0].length)}
+  if(!EM.includes(e))e="neutral";
+  hist.push($("nm").value+": "+t);show(e);speak(t);
+ }catch(x){show("sad");$("cap").textContent=(x&&x.message)||"Something went wrong"}
+ busy=false;
+}
+$("send").onclick=()=>{const v=$("txt").value.trim();$("txt").value="";ask(v)};
+$("txt").onkeydown=e=>{if(e.key==="Enter")$("send").click()};
+const SR=window.SpeechRecognition||window.webkitSpeechRecognition;let rec=null;
+$("mic").onclick=()=>{
+ if(!SR){$("user").textContent="Mic isn’t available here. Tap the 🎤 on your keyboard, speak, then press Send.";$("txt").focus();return}
+ if(rec){rec.stop();return}
+ window.speechSynthesis&&speechSynthesis.cancel();
+ rec=new SR();rec.lang=$("lang").value;
+ rec.onstart=()=>{$("mic").classList.add("on");$("user").textContent="Listening…"};
+ rec.onresult=e=>ask(e.results[0][0].transcript);
+ rec.onerror=ev=>{const b=ev.error==="not-allowed"||ev.error==="service-not-allowed";$("user").textContent=b?"Mic is blocked here. Tap the 🎤 on your keyboard, speak, then press Send.":"Couldn’t hear you. Try again.";if(b)$("txt").focus()};
+ rec.onend=()=>{$("mic").classList.remove("on");rec=null};
+ rec.start();
+};
+</script></body></html>
